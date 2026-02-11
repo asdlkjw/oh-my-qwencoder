@@ -60,21 +60,47 @@
 ## 파일 구조
 
 ```
-aegis/
-├── opencode.json                      # 4 에이전트 + vLLM + MCP
-├── package.json
-├── CLAUDE.md                          # 이 파일
-├── README.md
-├── .opencode/
+oh-my-qwencoder/                    # repo root = npm package
+├── package.json                    # name: "oh-my-qwencoder", bin, exports
+├── tsconfig.json
+├── src/
+│   ├── index.ts                    # Plugin factory (default export)
 │   ├── agents/
-│   │   ├── commander.md               # Primary: 설계 + 분배 + 통합
-│   │   ├── worker.md                  # Subagent: 기능별 독립 구현
-│   │   ├── scout.md                   # Subagent: 읽기 전용 탐색
-│   │   └── librarian.md              # Subagent: 읽기 전용 연구
-│   └── plugins/
-│       └── aegis-plugin.ts           # 플러그인 (WorkerManager + 도구 + 훅)
-└── scripts/
-    └── start-vllm.sh                 # vLLM (concurrent=16)
+│   │   ├── index.ts                # re-export all
+│   │   ├── commander.ts            # prompt string + config factory
+│   │   ├── worker.ts
+│   │   ├── scout.ts
+│   │   └── librarian.ts
+│   ├── tools/
+│   │   ├── index.ts
+│   │   ├── session.ts              # AegisSession types + state mgmt
+│   │   ├── design.ts               # design_approve
+│   │   ├── worker-management.ts    # dispatch/status/output/retry
+│   │   ├── background.ts           # background_task/output
+│   │   ├── code-intelligence.ts    # project_overview/find_references/ast_grep
+│   │   ├── git.ts                  # git_status/diff/log/commit
+│   │   └── qa.ts                   # qa_run/check_conflicts
+│   ├── hooks/
+│   │   ├── index.ts
+│   │   ├── chat-message.ts         # Phase injection + auto-transition
+│   │   ├── tool-execute-after.ts   # File tracking
+│   │   ├── stop.ts                 # Completion guard
+│   │   ├── session-compacting.ts   # Context preservation
+│   │   └── event.ts                # Session lifecycle
+│   ├── config/
+│   │   ├── schema.ts               # Zod schema for oh-my-qwencoder.json
+│   │   ├── loader.ts               # Load + merge user/project config
+│   │   └── provider.ts             # vLLM provider config factory
+│   └── cli/
+│       ├── index.ts                # install, doctor, start-vllm
+│       ├── install.ts              # Interactive installer
+│       └── doctor.ts               # Health checks
+├── bin/
+│   └── oh-my-qwencoder.js          # CLI entry point
+├── scripts/
+│   └── start-vllm.sh               # vLLM launcher
+├── CLAUDE.md
+└── README.md
 ```
 
 ---

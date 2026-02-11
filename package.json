@@ -1,0 +1,44 @@
+{
+  "name": "oh-my-qwencoder",
+  "version": "3.0.0",
+  "description": "Aegis — Parallel Development Swarm plugin for OpenCode on self-hosted vLLM (Qwen3-Coder-Next)",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "oh-my-qwencoder": "./bin/oh-my-qwencoder.js"
+  },
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "scripts"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepare": "npm run build",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "opencode",
+    "plugin",
+    "qwen",
+    "vllm",
+    "enterprise",
+    "swarm",
+    "parallel",
+    "aegis"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@opencode-ai/plugin": "latest",
+    "@ai-sdk/openai-compatible": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "typescript": "latest"
+  }
+}

@@ -1,4 +1,15 @@
+# Build output
+dist/
+
+# Dependencies
+node_modules/
+
+# Archives
 *.gz
 *.tar.gz
-node_modules/
+
+# OMC state
 .omc/
+
+# Config (user-specific)
+.opencode/oh-my-qwencoder.json
