@@ -1,0 +1,18 @@
+{
+  "name": "aegis-swarm",
+  "version": "3.0.0",
+  "description": "Aegis — Enterprise Parallel Development Swarm on self-hosted vLLM",
+  "private": true,
+  "keywords": ["opencode", "plugin", "qwen", "vllm", "enterprise", "swarm", "parallel"],
+  "license": "MIT",
+  "dependencies": {
+    "@opencode-ai/plugin": "latest",
+    "@ai-sdk/openai-compatible": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "typescript": "latest",
+    "@ast-grep/cli": "latest"
+  }
+}

@@ -1,0 +1,4 @@
+*.gz
+*.tar.gz
+node_modules/
+.omc/
