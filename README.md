@@ -57,8 +57,9 @@
 # 1. OpenCode 설치
 curl -fsSL https://opencode.ai/install | bash
 
-# 2. oh-my-qwencoder 글로벌 설치 (GitHub에서 직접)
-npm install -g github:asdlkjw/oh-my-qwencoder
+# 2. oh-my-qwencoder 설치
+git clone https://github.com/asdlkjw/oh-my-qwencoder.git
+npm install -g ./oh-my-qwencoder
 
 # 3. vLLM 서버 (H200)
 oh-my-qwencoder start-vllm
@@ -72,12 +73,6 @@ oh-my-qwencoder doctor
 
 # 6. 실행
 opencode
-```
-
-npx로 일회성 실행도 가능합니다:
-```bash
-npx github:asdlkjw/oh-my-qwencoder install
-npx github:asdlkjw/oh-my-qwencoder doctor
 ```
 
 > npm에 퍼블리시된 후에는 `npm install -g oh-my-qwencoder`로도 설치할 수 있습니다.
