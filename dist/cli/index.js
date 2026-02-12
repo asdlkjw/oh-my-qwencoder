@@ -23,6 +23,14 @@ async function main() {
             }
             break;
         }
+        case "version":
+        case "--version":
+        case "-v": {
+            const { readFileSync } = await import("node:fs");
+            const pkg = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf-8"));
+            console.log(pkg.version);
+            break;
+        }
         case "help":
         case "--help":
         case "-h":
@@ -34,6 +42,7 @@ Commands:
   install      Set up oh-my-qwencoder in the current project
   doctor       Check vLLM, opencode, and config health
   start-vllm   Start the vLLM server (scripts/start-vllm.sh)
+  version      Show version number
   help         Show this help message
 
 Usage:

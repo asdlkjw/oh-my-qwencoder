@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const VllmConfigSchema = z.object({
+  enabled: z.boolean().default(false),
   baseURL: z.string().default("http://localhost:8001/v1"),
   apiKey: z.string().default("EMPTY"),
   modelId: z.string().default("qwen3-coder-next"),
@@ -15,6 +16,7 @@ export const SwarmConfigSchema = z.object({
 
 export const PluginConfigSchema = z.object({
   vllm: VllmConfigSchema.default({
+    enabled: false,
     baseURL: "http://localhost:8001/v1",
     apiKey: "EMPTY",
     modelId: "qwen3-coder-next",

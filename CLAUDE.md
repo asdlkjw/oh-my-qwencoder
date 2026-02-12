@@ -4,6 +4,10 @@
 
 ---
 
+## 현재 버전: 3.1.2
+
+---
+
 ## 한 줄 요약
 
 **Aegis v3**는 하나의 자체호스팅 LLM(Qwen3-Coder-Next)으로 Commander가 설계하고, 여러 Worker가 기능별로 병렬 개발하고, Commander가 통합 QA하는 **개발 스웜** 플러그인입니다.
@@ -57,6 +61,85 @@
 
 ---
 
+## 버전 관리
+
+### 규칙
+
+- **npm에 publish된 버전은 재사용 불가** — 같은 버전 번호로 다시 publish하면 `E403` 에러
+- **패치 변경** (버그 수정, doctor 개선 등): `3.1.0` → `3.1.1`
+- **기능 추가** (새 에이전트, 새 도구 등): `3.1.x` → `3.2.0`
+- **브레이킹 체인지** (config 스키마 변경, API 변경): `3.x.y` → `4.0.0`
+- `package.json`의 `version` 필드를 수정 후 `npm run build && npm publish --access public`
+- publish 전 반드시 `npm run typecheck` 통과 확인
+
+### Publish 체크리스트
+
+```bash
+npm run typecheck          # 타입 에러 없는지 확인
+npm run build              # dist/ 생성
+npm publish --access public # npm에 배포
+npm install -g oh-my-qwencoder@<version>  # 글로벌 설치 테스트
+oh-my-qwencoder doctor     # 헬스체크
+```
+
+### 변경 이력
+
+| 버전 | 변경 내용 |
+|------|-----------|
+| **3.1.2** | Config 우선순위 버그 수정 — `loader.ts` 딥 머지, `install.ts` 프로젝트 config 동기화, `doctor.ts` 양쪽 config + effective 표시 + stale 경고, `--version` CLI 지원 |
+| **3.1.1** | `doctor.ts` — 글로벌 config 체크 지원, enabled 상태 표시, 에러/경고 구분 |
+| **3.1.0** | 인터랙티브 `install` (readline/promises), `enabled` 필드 추가, provider 주입 가드, 글로벌 config 등록 |
+| **3.0.0** | 초기 릴리스 — Commander/Worker/Scout/Librarian 에이전트, 7단계 라이프사이클, 20개 커스텀 도구 |
+
+---
+
+## 설치 및 설정
+
+### 설치 플로우
+
+```bash
+npm install -g oh-my-qwencoder    # 1. 글로벌 설치
+oh-my-qwencoder install            # 2. 인터랙티브 설정
+opencode                           # 3. 실행
+```
+
+### `oh-my-qwencoder install`이 하는 일
+
+1. Aegis 배너 표시
+2. vLLM/llama.cpp 서버 유무 질문 (readline/promises)
+3. Yes → base_url, api_key, model_id, model_name, context_window, max_tokens 입력
+4. 연결 테스트 (`GET {baseURL}/models`, 10초 타임아웃)
+5. `~/.config/opencode/oh-my-qwencoder.json` 작성 (`enabled: true/false`)
+6. 프로젝트 `.opencode/oh-my-qwencoder.json`이 존재하면 같은 내용으로 동기화 (v3.1.2+)
+7. `~/.config/opencode/opencode.json`의 `plugin` 배열에 `"oh-my-qwencoder"` 추가
+8. 프로젝트 레벨 `opencode.json`이 있으면 거기에도 등록
+
+### Config 경로 및 머지 전략
+
+| 우선순위 | 경로 | 설명 |
+|---------|------|------|
+| 1 (높음) | `{project}/.opencode/oh-my-qwencoder.json` | 프로젝트 레벨 |
+| 2 (낮음) | `~/.config/opencode/oh-my-qwencoder.json` | 글로벌 (install이 생성) |
+
+**딥 머지 (v3.1.2+)**: `loader.ts`는 중첩 객체를 필드 단위로 머지합니다. 예를 들어 글로벌에 `vllm.enabled: true`가 있고 프로젝트에 `vllm.baseURL`만 있으면 두 필드가 공존합니다. 얕은 머지(`{...global, ...project}`)가 아닌 `vllm` 객체 내부까지 머지합니다.
+
+### `enabled` 필드의 역할
+
+- `vllm.enabled: false` → `provider.ts`에서 provider/agent/MCP 주입 **전부 스킵**
+- 이로써 vLLM 서버 없이도 opencode가 검은화면 없이 정상 실행됨
+- 서버 준비 후 `oh-my-qwencoder install` 재실행하면 `enabled: true`로 전환
+
+### `oh-my-qwencoder doctor`가 체크하는 것
+
+1. 플러그인 등록 여부 (글로벌 + 프로젝트 opencode.json)
+2. Config 파일 존재 여부 — 글로벌/프로젝트 **각각** 표시 (enabled, endpoint)
+3. Stale 프로젝트 config 경고 — `enabled` 필드 없는 v3.0.0 형식이면 경고
+4. **Effective config** (딥 머지 결과) 표시 — 양쪽 config가 모두 있을 때
+5. vLLM 서버 연결 (effective config의 `enabled: true`일 때만)
+6. opencode CLI 설치 여부
+
+---
+
 ## 파일 구조
 
 ```
@@ -88,13 +171,13 @@ oh-my-qwencoder/                    # repo root = npm package
 │   │   ├── session-compacting.ts   # Context preservation
 │   │   └── event.ts                # Session lifecycle
 │   ├── config/
-│   │   ├── schema.ts               # Zod schema for oh-my-qwencoder.json
-│   │   ├── loader.ts               # Load + merge user/project config
-│   │   └── provider.ts             # vLLM provider config factory
+│   │   ├── schema.ts               # Zod schema (VllmConfig.enabled 포함)
+│   │   ├── loader.ts               # Load + deep merge user/project config (exports findConfigPaths, loadJsonFile)
+│   │   └── provider.ts             # vLLM provider config factory (enabled 가드)
 │   └── cli/
-│       ├── index.ts                # install, doctor, start-vllm
-│       ├── install.ts              # Interactive installer
-│       └── doctor.ts               # Health checks
+│       ├── index.ts                # install, doctor, start-vllm, version
+│       ├── install.ts              # 인터랙티브 설치 (readline/promises)
+│       └── doctor.ts               # 글로벌+프로젝트 헬스체크
 ├── bin/
 │   └── oh-my-qwencoder.js          # CLI entry point
 ├── scripts/
@@ -200,30 +283,59 @@ Worker는 공유 모듈(src/lib, src/types 등)을 수정할 수 없습니다. �
 
 ## 개선 로드맵
 
-### 🟢 단기
+### ✅ 완료 (v3.1.x)
+
+- ~~인터랙티브 설치~~ → `oh-my-qwencoder install` (readline/promises)
+- ~~글로벌 config 등록~~ → `~/.config/opencode/opencode.json` + `oh-my-qwencoder.json`
+- ~~vLLM 없을 때 검은화면~~ → `enabled: false` 가드
+- ~~doctor 글로벌 config 미체크~~ → 글로벌 + 프로젝트 모두 체크
+- ~~Config 얕은 머지로 `enabled` 유실~~ → 딥 머지 (v3.1.2)
+- ~~install이 프로젝트 config 미갱신~~ → 프로젝트 config 동기화 (v3.1.2)
+- ~~doctor가 머지 결과 미표시~~ → effective config + stale 경고 (v3.1.2)
+- ~~`--version` 미지원~~ → `oh-my-qwencoder --version` (v3.1.2)
+
+### 🟢 단기 (v3.2.x)
 
 1. **Worker 진행률 실시간 스트리밍** — Worker 내부 TODO를 Commander에게 전파
 2. **자동 스코프 추천** — `project_overview` 결과 기반 디렉토리 분배 제안
 3. **Worker 간 의존성 순서** — "Worker#2는 Worker#1 완료 후 시작" 지원
 4. **슬래시 커맨드** — `/status`, `/workers`, `/retry w01`, `/qa`
+5. **llama.cpp 네이티브 지원** — vLLM 외 llama.cpp/Ollama 서버 자동 감지
 
-### 🟡 중기
+### 🟡 중기 (v3.3.x ~ v3.5.x)
 
-5. **Git 브랜치 분리** — 각 Worker가 feature 브랜치에서 작업, Commander가 머지
-6. **Worker 결과 캐시** — 파일 저장으로 세션 재시작 시 복구
-7. **동적 Worker 수 조절** — vLLM 부하 모니터링 기반
-8. **Inspector 에이전트** — QA 전담 서브에이전트 (테스트 작성 특화)
+6. **Git 브랜치 분리** — 각 Worker가 feature 브랜치에서 작업, Commander가 머지
+7. **Worker 결과 캐시** — 파일 저장으로 세션 재시작 시 복구
+8. **동적 Worker 수 조절** — vLLM 부하 모니터링 기반 (`/metrics` 폴링)
+9. **Inspector 에이전트** — QA 전담 서브에이전트 (테스트 작성 특화)
+10. **멀티 프로바이더** — vLLM + Ollama + OpenAI 동시 사용 (Worker별 다른 모델)
 
-### 🔴 장기
+### 🔴 장기 (v4.x)
 
-9. **멀티 GPU** — `--tensor-parallel-size 2+`로 256K 컨텍스트 + 더 많은 Worker
-10. **프로젝트 메모리** — 이전 세션의 설계/패턴을 SQLite에 저장
-11. **CI/CD 연동** — Worker 완료 → 자동 PR 생성 → CI 결과 피드백
-12. **Web UI 대시보드** — Worker 실시간 상태를 브라우저에서 모니터링
+11. **멀티 GPU** — `--tensor-parallel-size 2+`로 256K 컨텍스트 + 더 많은 Worker
+12. **프로젝트 메모리** — 이전 세션의 설계/패턴을 SQLite에 저장
+13. **CI/CD 연동** — Worker 완료 → 자동 PR 생성 → CI 결과 피드백
+14. **Web UI 대시보드** — Worker 실시간 상태를 브라우저에서 모니터링
+15. **원격 Worker** — SSH/Docker를 통한 분산 Worker 실행
 
 ---
 
 ## 디버깅 가이드
+
+### opencode 실행 시 검은화면
+- `~/.config/opencode/oh-my-qwencoder.json`에서 `vllm.enabled` 확인
+- `enabled: true`인데 서버가 죽었으면 검은화면 발생
+- 해결: 서버 재시작 또는 `oh-my-qwencoder install` → 서버 없음 선택 (disabled로 전환)
+
+### npm publish 403 에러
+- 이미 publish된 버전을 다시 publish하면 발생
+- `package.json`의 `version`을 올린 후 다시 시도
+- 패치: `x.y.z+1`, 기능: `x.y+1.0`, 브레이킹: `x+1.0.0`
+
+### 플러그인이 opencode에서 인식 안 됨
+- `oh-my-qwencoder doctor`로 등록 상태 확인
+- `~/.config/opencode/opencode.json`의 `plugin` 배열에 `"oh-my-qwencoder"` 있는지 확인
+- 없으면 `oh-my-qwencoder install` 재실행
 
 ### Worker가 실행되지 않을 때
 ```bash

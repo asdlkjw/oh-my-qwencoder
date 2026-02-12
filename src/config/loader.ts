@@ -4,7 +4,7 @@ import { PluginConfigSchema, type PluginConfig } from "./schema.js";
 
 const CONFIG_FILENAME = "oh-my-qwencoder.json";
 
-function findConfigPaths(projectDir: string): string[] {
+export function findConfigPaths(projectDir: string): string[] {
   const paths: string[] = [];
 
   // Project-level config: .opencode/oh-my-qwencoder.json
@@ -19,7 +19,7 @@ function findConfigPaths(projectDir: string): string[] {
   return paths;
 }
 
-function loadJsonFile(path: string): Record<string, unknown> {
+export function loadJsonFile(path: string): Record<string, unknown> {
   try {
     return JSON.parse(readFileSync(path, "utf-8"));
   } catch {
@@ -30,10 +30,20 @@ function loadJsonFile(path: string): Record<string, unknown> {
 export function loadPluginConfig(projectDir: string): PluginConfig {
   const configPaths = findConfigPaths(projectDir);
 
-  // Merge configs: project overrides user overrides defaults
+  // Deep merge: global defaults ← project overrides (field-level for nested objects)
   let merged: Record<string, unknown> = {};
   for (const p of configPaths.reverse()) {
-    merged = { ...merged, ...loadJsonFile(p) };
+    const raw = loadJsonFile(p);
+    for (const [key, value] of Object.entries(raw)) {
+      if (
+        typeof value === "object" && value !== null && !Array.isArray(value) &&
+        typeof merged[key] === "object" && merged[key] !== null && !Array.isArray(merged[key])
+      ) {
+        merged[key] = { ...(merged[key] as Record<string, unknown>), ...(value as Record<string, unknown>) };
+      } else {
+        merged[key] = value;
+      }
+    }
   }
 
   return PluginConfigSchema.parse(merged);

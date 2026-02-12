@@ -10,6 +10,10 @@ import {
 export function createConfigHook(pluginConfig: PluginConfig) {
   return async (config: Config): Promise<void> => {
     const { vllm } = pluginConfig;
+
+    // Skip provider injection if vLLM is not enabled (prevents black screen)
+    if (!vllm.enabled) return;
+
     const fullModelId = `qwen-local/${vllm.modelId}`;
 
     // Inject provider
@@ -38,10 +42,19 @@ export function createConfigHook(pluginConfig: PluginConfig) {
 
     // Inject agents (cast needed: SDK AgentConfig has index signature, our interface doesn't)
     if (!config.agent) config.agent = {};
-    config.agent.commander = createCommanderAgent(fullModelId) as any;
+
+    // Remove default OpenCode agents (user only wants Aegis)
+    delete config.agent.build;
+    delete config.agent.plan;
+
+    // Register Aegis agents (capital A — UI displays "Aegis")
+    config.agent.Aegis = createCommanderAgent(fullModelId) as any;
     config.agent.worker = createWorkerAgent(fullModelId) as any;
     config.agent.scout = createScoutAgent(fullModelId) as any;
     config.agent.librarian = createLibrarianAgent(fullModelId) as any;
+
+    // Set Aegis as the default agent
+    (config as any).default_agent = "Aegis";
 
     // Inject MCP servers (cast needed: SDK uses "local"/"remote" but runtime accepts "stdio")
     if (!config.mcp) config.mcp = {};

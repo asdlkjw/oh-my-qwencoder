@@ -1,76 +1,133 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-export async function runDoctor(args) {
-    const cwd = process.cwd();
-    console.log("\n🛡️  oh-my-qwencoder doctor\n");
-    let allOk = true;
-    // 1. Check opencode.json exists
-    const opencodePath = join(cwd, "opencode.json");
-    if (existsSync(opencodePath)) {
-        console.log("  ✅ opencode.json found");
-        try {
-            const config = JSON.parse(readFileSync(opencodePath, "utf-8"));
-            if (config.plugin?.includes("oh-my-qwencoder")) {
-                console.log("  ✅ oh-my-qwencoder registered as plugin");
-            }
-            else {
-                console.log("  ❌ oh-my-qwencoder not in plugin list. Run: oh-my-qwencoder install");
-                allOk = false;
-            }
-        }
-        catch {
-            console.log("  ❌ opencode.json is invalid JSON");
-            allOk = false;
-        }
-    }
-    else {
-        console.log("  ❌ opencode.json not found. Run: oh-my-qwencoder install");
-        allOk = false;
-    }
-    // 2. Check config
-    const configPath = join(cwd, ".opencode", "oh-my-qwencoder.json");
-    if (existsSync(configPath)) {
-        console.log("  ✅ .opencode/oh-my-qwencoder.json found");
-        try {
-            const config = JSON.parse(readFileSync(configPath, "utf-8"));
-            console.log(`     vLLM endpoint: ${config.vllm?.baseURL || "not set"}`);
-        }
-        catch {
-            console.log("  ❌ Config file is invalid JSON");
-            allOk = false;
-        }
-    }
-    else {
-        console.log("  ❌ .opencode/oh-my-qwencoder.json not found. Run: oh-my-qwencoder install");
-        allOk = false;
-    }
-    // 3. Check vLLM connectivity
-    const vllmUrl = (() => {
-        try {
-            const config = JSON.parse(readFileSync(configPath, "utf-8"));
-            return config.vllm?.baseURL || "http://localhost:8001/v1";
-        }
-        catch {
-            return "http://localhost:8001/v1";
-        }
-    })();
+function getGlobalConfigDir() {
+    const home = process.env.HOME || process.env.USERPROFILE || "";
+    return join(home, ".config", "opencode");
+}
+function loadConfig(path) {
+    if (!existsSync(path))
+        return null;
     try {
-        const res = await fetch(`${vllmUrl}/models`, { signal: AbortSignal.timeout(5000) });
-        if (res.ok) {
-            const data = await res.json();
-            const models = data.data?.map((m) => m.id).join(", ") || "unknown";
-            console.log(`  ✅ vLLM reachable at ${vllmUrl}`);
-            console.log(`     Models: ${models}`);
-        }
-        else {
-            console.log(`  ⚠️  vLLM responded with status ${res.status}`);
-            allOk = false;
-        }
+        return JSON.parse(readFileSync(path, "utf-8"));
     }
     catch {
-        console.log(`  ⚠️  vLLM not reachable at ${vllmUrl}`);
-        console.log("     Start vLLM: oh-my-qwencoder start-vllm");
-        // Not setting allOk=false — vLLM can be started later
+        return null;
+    }
+}
+export async function runDoctor(_args) {
+    const cwd = process.cwd();
+    const globalDir = getGlobalConfigDir();
+    console.log("\n🛡️  oh-my-qwencoder doctor\n");
+    let warnings = 0;
+    let errors = 0;
+    // 1. Check opencode.json (global then project)
+    const globalOpencodePath = join(globalDir, "opencode.json");
+    const projectOpencodePath = join(cwd, "opencode.json");
+    let pluginRegistered = false;
+    const globalOpencodeConfig = loadConfig(globalOpencodePath);
+    if (globalOpencodeConfig) {
+        if (globalOpencodeConfig.plugin?.includes("oh-my-qwencoder")) {
+            console.log(`  ✅ Plugin registered (global) → ${globalOpencodePath}`);
+            pluginRegistered = true;
+        }
+    }
+    const projectOpencodeConfig = loadConfig(projectOpencodePath);
+    if (projectOpencodeConfig) {
+        if (projectOpencodeConfig.plugin?.includes("oh-my-qwencoder")) {
+            console.log(`  ✅ Plugin registered (project) → ${projectOpencodePath}`);
+            pluginRegistered = true;
+        }
+    }
+    if (!pluginRegistered) {
+        console.log("  ❌ oh-my-qwencoder not registered in any opencode.json");
+        console.log("     Run: oh-my-qwencoder install");
+        errors++;
+    }
+    // 2. Check oh-my-qwencoder.json configs
+    const globalConfigPath = join(globalDir, "oh-my-qwencoder.json");
+    const projectConfigPath = join(cwd, ".opencode", "oh-my-qwencoder.json");
+    const globalPluginConfig = loadConfig(globalConfigPath);
+    const projectPluginConfig = loadConfig(projectConfigPath);
+    // Show individual configs
+    if (globalPluginConfig) {
+        const enabled = globalPluginConfig.vllm?.enabled;
+        const baseURL = globalPluginConfig.vllm?.baseURL || "not set";
+        console.log(`  ✅ Global config → ${globalConfigPath}`);
+        console.log(`     enabled: ${enabled !== undefined ? (enabled ? "yes" : "no") : "not set"}, endpoint: ${baseURL}`);
+    }
+    else {
+        console.log(`  ⚠️  No global config → ${globalConfigPath}`);
+        warnings++;
+    }
+    if (projectPluginConfig) {
+        const enabled = projectPluginConfig.vllm?.enabled;
+        const baseURL = projectPluginConfig.vllm?.baseURL || "not set";
+        console.log(`  ✅ Project config → ${projectConfigPath}`);
+        console.log(`     enabled: ${enabled !== undefined ? (enabled ? "yes" : "no") : "not set"}, endpoint: ${baseURL}`);
+        // Bug 4: Warn about stale project config
+        if (projectPluginConfig.vllm && !("enabled" in projectPluginConfig.vllm)) {
+            console.log("  ⚠️  Project config is outdated (missing 'enabled' field)");
+            console.log("     Run 'oh-my-qwencoder install' to update");
+            warnings++;
+        }
+    }
+    if (!globalPluginConfig && !projectPluginConfig) {
+        console.log("  ❌ oh-my-qwencoder.json not found (global or project)");
+        console.log("     Run: oh-my-qwencoder install");
+        errors++;
+    }
+    // Compute effective (merged) config — same logic as loader.ts
+    let effectiveMerged = {};
+    for (const raw of [globalPluginConfig, projectPluginConfig]) {
+        if (!raw)
+            continue;
+        for (const [key, value] of Object.entries(raw)) {
+            if (typeof value === "object" && value !== null && !Array.isArray(value) &&
+                typeof effectiveMerged[key] === "object" && effectiveMerged[key] !== null && !Array.isArray(effectiveMerged[key])) {
+                effectiveMerged[key] = { ...effectiveMerged[key], ...value };
+            }
+            else {
+                effectiveMerged[key] = value;
+            }
+        }
+    }
+    const pluginConfig = (globalPluginConfig || projectPluginConfig) ? effectiveMerged : null;
+    if (pluginConfig && (globalPluginConfig && projectPluginConfig)) {
+        const enabled = pluginConfig.vllm?.enabled;
+        const baseURL = pluginConfig.vllm?.baseURL || "not set";
+        console.log(`  📋 Effective config (merged)`);
+        console.log(`     enabled: ${enabled ? "yes" : "no"}, endpoint: ${baseURL}`);
+    }
+    // 3. Check vLLM connectivity (only if enabled)
+    if (pluginConfig?.vllm?.enabled) {
+        const vllmUrl = pluginConfig.vllm.baseURL || "http://localhost:8001/v1";
+        const apiKey = pluginConfig.vllm.apiKey;
+        try {
+            const headers = { "Content-Type": "application/json" };
+            if (apiKey && apiKey !== "EMPTY") {
+                headers["Authorization"] = `Bearer ${apiKey}`;
+            }
+            const res = await fetch(`${vllmUrl}/models`, { headers, signal: AbortSignal.timeout(5000) });
+            if (res.ok) {
+                const data = await res.json();
+                const models = data.data?.map((m) => m.id).join(", ") || "unknown";
+                console.log(`  ✅ vLLM reachable → ${vllmUrl}`);
+                console.log(`     Models: ${models}`);
+            }
+            else {
+                console.log(`  ⚠️  vLLM responded with HTTP ${res.status} → ${vllmUrl}`);
+                warnings++;
+            }
+        }
+        catch {
+            console.log(`  ⚠️  vLLM not reachable → ${vllmUrl}`);
+            console.log("     Check your server or run: oh-my-qwencoder install");
+            warnings++;
+        }
+    }
+    else if (pluginConfig && !pluginConfig.vllm?.enabled) {
+        console.log("  ℹ️  vLLM disabled — skipping connectivity check");
+        console.log("     Run 'oh-my-qwencoder install' to enable");
     }
     // 4. Check opencode CLI
     try {
@@ -79,9 +136,19 @@ export async function runDoctor(args) {
         console.log("  ✅ opencode CLI found");
     }
     catch {
-        console.log("  ❌ opencode CLI not found. Install: curl -fsSL https://opencode.ai/install | bash");
-        allOk = false;
+        console.log("  ❌ opencode CLI not found");
+        console.log("     Install: curl -fsSL https://opencode.ai/install | bash");
+        errors++;
     }
-    console.log(allOk ? "\n✅ All checks passed!\n" : "\n⚠️  Some checks failed. See above.\n");
+    // Summary
+    if (errors > 0) {
+        console.log(`\n❌ ${errors} error(s), ${warnings} warning(s)\n`);
+    }
+    else if (warnings > 0) {
+        console.log(`\n⚠️  ${warnings} warning(s), but no errors\n`);
+    }
+    else {
+        console.log("\n✅ All checks passed!\n");
+    }
 }
 //# sourceMappingURL=doctor.js.map
