@@ -5,12 +5,14 @@ export async function chatMessageHook(input: any, output: any): Promise<void> {
 
   const phaseInstructions: Record<CommanderPhase, string> = {
     design: `[AEGIS COMMANDER — DESIGN PHASE]
-You MUST design the project with the user before any development.
-1. Understand the full project scope
-2. Break features into independent, parallelizable units
-3. Define non-overlapping file scopes for each Worker
-4. Agree on QA strategy
-5. Present the plan and call \`design_approve\` when confirmed.
+You MUST conduct a structured interview using \`design_ask\` before any development.
+For each question, generate 5-10 options dynamically based on the project context.
+After the user responds, record with \`design_answer\`.
+
+Required topics (in order): project_type → tech_stack → features → architecture → qa_strategy
+Optional topics (as needed): database, auth, deployment, ui_framework, api_design
+
+After all topics are covered, summarize the design and call \`design_approve\`.
 If user says "skip design" / "바로 진행", approve with minimal summary.`,
 
     foundation: `[AEGIS COMMANDER — FOUNDATION PHASE]

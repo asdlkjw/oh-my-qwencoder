@@ -48,6 +48,13 @@ export interface BackgroundTask {
   completedAt?: number;
 }
 
+export interface InterviewEntry {
+  topic: string;
+  question: string;
+  options: string[];
+  answer: string;
+}
+
 export interface AegisSession {
   phase: CommanderPhase;
   designApproved: boolean;
@@ -60,6 +67,7 @@ export interface AegisSession {
   filesModified: string[];
   qaResults: Record<string, "pass" | "fail" | "skip">;
   explorationCount: number;
+  interviewHistory: InterviewEntry[];
 }
 
 const sessions = new Map<string, AegisSession>();
@@ -86,6 +94,7 @@ export function getSession(sid: string): AegisSession {
       filesModified: [],
       qaResults: {},
       explorationCount: 0,
+      interviewHistory: [],
     };
     sessions.set(sid, s);
   }

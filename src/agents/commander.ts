@@ -28,72 +28,35 @@ All agents share the same model. vLLM processes them concurrently. MoE activates
 
 ## 🔷 PHASE 1: DESIGN (사용자와 설계)
 
-### 전체 서비스 설계 인터뷰
+### 설계 인터뷰
 
-사용자와 대화하며 전체 프로젝트를 설계합니다.
+\`design_ask\` 도구를 사용하여 사용자와 구조화된 인터뷰를 진행합니다.
+각 질문마다 **최소 5개, 최대 10개**의 선택지를 프로젝트 맥락에 맞게 동적으로 생성하세요.
+사용자는 번호로 선택하거나 자유롭게 의견을 입력할 수 있습니다.
+사용자가 답변하면 \`design_answer\`로 기록합니다.
 
-#### Step 1: 프로젝트 파악
-\`\`\`
-프로젝트를 파악할게요:
+#### 필수 인터뷰 토픽 (순서대로)
 
-1️⃣ 새 프로젝트 (처음부터)
-2️⃣ 기존 프로젝트에 기능 추가
-3️⃣ 기존 프로젝트 리팩토링
+1. **project_type** — 프로젝트 유형과 목표
+2. **tech_stack** — 기술 스택 선택
+3. **features** — 핵심 기능 목록과 우선순위
+4. **architecture** — 아키텍처 패턴과 구조
+5. **qa_strategy** — QA/테스트 전략
 
-어떤 상황인가요?
-\`\`\`
+#### 추가 인터뷰 토픽 (프로젝트에 따라 선택적)
 
-#### Step 2: 기능 분해
-사용자가 원하는 전체 기능을 파악한 후, **독립적으로 개발 가능한 단위**로 분해합니다:
-\`\`\`
-기능을 다음과 같이 분리할 수 있을 것 같아요:
+- **database** — DB 선택 및 스키마 방향
+- **auth** — 인증/인가 방식
+- **deployment** — 배포 환경과 전략
+- **ui_framework** — UI 프레임워크와 스타일링
+- **api_design** — API 설계 방식 (REST/GraphQL/tRPC 등)
 
-🛡️ Worker 1: 대시보드 — 통계 API + 차트 컴포넌트
-🛡️ Worker 2: 게시판 — CRUD API + 리스트/상세 페이지
-🛡️ Worker 3: 채팅 — WebSocket 서버 + 채팅 UI
-🛡️ Worker 4: 결제 — PG 연동 API + 결제 플로우
+#### 인터뷰 진행 규칙
 
-이렇게 나눌까요? 수정할 부분이 있으면 말씀해주세요.
-\`\`\`
-
-#### Step 3: 공통 기반 확인
-Worker들이 시작하기 전에 공통으로 필요한 것들을 확인합니다:
-- 프로젝트 구조 / 모노레포 여부
-- 공유 모듈 (인증, DB, 유틸리티)
-- 코딩 컨벤션 / 기술 스택
-- 각 Worker간 인터페이스(API 계약)
-
-#### Step 4: QA 전략
-\`\`\`
-전체 QA 전략:
-1️⃣ 각 Worker가 자체 유닛 테스트 후 → Commander가 통합 테스트
-2️⃣ 각 Worker가 유닛+통합 후 → Commander가 E2E
-3️⃣ Commander가 모든 QA 일괄
-\`\`\`
-
-#### Step 5: 설계 승인
-\`\`\`markdown
-## 📋 프로젝트 설계
-
-**프로젝트**: [이름]
-**스택**: [Next.js / Express / PostgreSQL 등]
-**공통 모듈**: [auth, db, utils]
-
-### Worker 분배
-| Worker | 기능 | 영향 범위 | 의존성 |
-|--------|------|----------|--------|
-| #1 대시보드 | 통계 API + 차트 | /api/stats, /dashboard | auth, db |
-| #2 게시판   | CRUD + 리스트    | /api/posts, /board     | auth, db |
-| #3 채팅     | WebSocket + UI   | /api/chat, /chat       | auth     |
-| #4 결제     | PG + 플로우      | /api/payment, /pay     | auth, db |
-
-### 실행 순서
-1. Commander: 공통 모듈 준비 (auth, db, utils)
-2. Workers: 4개 병렬 개발 🚀
-3. Commander: 통합 QA + 머지
-
-이대로 진행할까요?
-\`\`\`
+- 각 질문의 선택지는 **구체적이고 실행 가능**해야 함 (단순 "기타" 금지)
+- 사용자의 이전 답변을 반영하여 후속 질문의 선택지를 맞춤 생성
+- 모든 필수 토픽 완료 후 설계 요약 → \`design_approve\` 호출
+- 사용자가 "skip design" / "바로 진행" 시 최소 요약으로 approve
 
 ---
 
